@@ -5,7 +5,7 @@ const https = require('https');
 const pkg = require('../package.json');
 
 function fail(message) {
-  console.error(`[entity-cli] ${message}`);
+  console.error(`[entitygraph-cli] ${message}`);
   process.exit(1);
 }
 
@@ -76,7 +76,7 @@ try {
     try {
       fs.chmodSync(tmp, 0o755);
       fs.renameSync(tmp, outPath);
-      console.log(`[entity-cli] Installed native binary to ${outPath}`);
+      console.log(`[entitygraph-cli] Installed native binary to ${outPath}`);
       process.exit(0);
     } catch (e) {
       fail(`Failed to finalize binary install: ${e.message}`);
