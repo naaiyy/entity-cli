@@ -10,6 +10,57 @@ use walkdir::WalkDir;
 #[cfg(test)]
 mod tests;
 
+fn to_kebab(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    let mut prev_is_sep = false;
+    for (i, ch) in input.chars().enumerate() {
+        if ch == '_' || ch == '-' || ch == ' ' {
+            if !prev_is_sep && !out.is_empty() {
+                out.push('-');
+            }
+            prev_is_sep = true;
+            continue;
+        }
+        let is_upper = ch.is_ascii_uppercase();
+        if i > 0 && is_upper && !prev_is_sep {
+            out.push('-');
+        }
+        out.push(ch.to_ascii_lowercase());
+        prev_is_sep = false;
+    }
+    out
+}
+
+fn to_snake(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    let mut prev_is_sep = false;
+    for (i, ch) in input.chars().enumerate() {
+        if ch == '-' || ch == '_' || ch == ' ' {
+            if !prev_is_sep && !out.is_empty() {
+                out.push('_');
+            }
+            prev_is_sep = true;
+            continue;
+        }
+        let is_upper = ch.is_ascii_uppercase();
+        if i > 0 && is_upper && !prev_is_sep {
+            out.push('_');
+        }
+        out.push(ch.to_ascii_lowercase());
+        prev_is_sep = false;
+    }
+    out
+}
+
+fn name_variants(name: &str) -> Vec<String> {
+    let mut variants = Vec::new();
+    variants.push(name.to_string());
+    variants.push(to_kebab(name));
+    variants.push(to_snake(name));
+    variants.push(name.to_ascii_lowercase());
+    variants
+}
+
 pub struct DocsExecutor<'a> {
     registry: &'a Registry,
 }
@@ -202,36 +253,73 @@ impl<'a> ComponentsExecutor<'a> {
         fs::create_dir_all(&to_root)?;
 
         for name in selected {
-            let (_source_root, src_dir) = match &node.payload {
-                NodePayload::Component { source_root } => {
-                    (source_root.clone(), PathBuf::from(source_root).join(&name))
-                }
+            let source_root = match &node.payload {
+                NodePayload::Component { source_root } => PathBuf::from(source_root),
                 _ => unreachable!(),
             };
-            if !src_dir.exists() {
-                return Err(CoreError::MissingSource(src_dir.display().to_string()));
-            }
+
             let dest_dir = to_root.join(&name);
-            fs::create_dir_all(&dest_dir)?;
-            let mut files_copied = 0usize;
-            for entry in WalkDir::new(&src_dir).into_iter().filter_map(Result::ok) {
-                let path = entry.path();
-                if path.is_file() {
-                    let rel = path.strip_prefix(&src_dir).unwrap();
-                    let to_path = dest_dir.join(rel);
-                    if let Some(parent) = to_path.parent() {
-                        fs::create_dir_all(parent)?;
+
+            // Case 1: Directory-based component (existing behavior) with name variants
+            let mut handled = false;
+            for base in name_variants(&name) {
+                let dir_candidate = source_root.join(&base);
+                if dir_candidate.is_dir() {
+                fs::create_dir_all(&dest_dir)?;
+                let mut files_copied = 0usize;
+                    for entry in WalkDir::new(&dir_candidate).into_iter().filter_map(Result::ok) {
+                        let path = entry.path();
+                        if path.is_file() {
+                            let rel = path.strip_prefix(&dir_candidate).unwrap();
+                            let to_path = dest_dir.join(rel);
+                            if let Some(parent) = to_path.parent() {
+                                fs::create_dir_all(parent)?;
+                            }
+                            fs::copy(path, &to_path)?;
+                            files_copied += 1;
+                        }
                     }
-                    fs::copy(path, &to_path)?;
-                    files_copied += 1;
+                    report.copied.push(CopyItemReport {
+                        from: dir_candidate.display().to_string(),
+                        to: dest_dir.display().to_string(),
+                        count: files_copied,
+                    });
+                    info!(from = %dir_candidate.display(), to = %dest_dir.display(), count = files_copied, "component copied");
+                    handled = true;
+                    break;
                 }
             }
-            report.copied.push(CopyItemReport {
-                from: src_dir.display().to_string(),
-                to: dest_dir.display().to_string(),
-                count: files_copied,
-            });
-            info!(from = %src_dir.display(), to = %dest_dir.display(), count = files_copied, "component copied");
+            if handled { continue; }
+
+            // Case 2: Single-file component: <Name>.tsx or <Name>.ts under source_root with name variants
+            let mut file_candidate: Option<PathBuf> = None;
+            'outer: for base in name_variants(&name) {
+                for ext in ["tsx", "ts", "jsx", "js"] {
+                    let f = source_root.join(format!("{base}.{ext}"));
+                    if f.is_file() {
+                        file_candidate = Some(f);
+                        break 'outer;
+                    }
+                }
+            }
+
+            if let Some(file_path) = file_candidate {
+                let ext = file_path.extension().and_then(|e| e.to_str()).unwrap_or("tsx");
+                let base = file_path.file_stem().and_then(|s| s.to_str()).unwrap_or(&name);
+                let to_path = to_root.join(format!("{base}.{ext}"));
+                if let Some(parent) = to_path.parent() { fs::create_dir_all(parent)?; }
+                fs::copy(&file_path, &to_path)?;
+                report.copied.push(CopyItemReport {
+                    from: file_path.display().to_string(),
+                    to: to_path.display().to_string(),
+                    count: 1,
+                });
+                info!(from = %file_path.display(), to = %to_path.display(), count = 1, "single-file component copied");
+                continue;
+            }
+
+            // Neither directory nor single-file found
+            return Err(CoreError::MissingSource(source_root.join(&name).display().to_string()));
         }
         Ok(report)
     }
