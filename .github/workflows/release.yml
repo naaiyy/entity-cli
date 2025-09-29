@@ -1,0 +1,45 @@
+name: Release macOS arm64
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build (release)
+        run: |
+          cargo build --release
+          ls -al target/release
+
+      - name: Prepare asset
+        run: |
+          cp target/release/entity-cli entity-cli-darwin-arm64
+          chmod +x entity-cli-darwin-arm64
+          file entity-cli-darwin-arm64 | cat
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: false
+          prerelease: false
+          files: |
+            entity-cli-darwin-arm64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+

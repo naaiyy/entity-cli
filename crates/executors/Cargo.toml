@@ -1,0 +1,16 @@
+[package]
+name = "executors"
+version = "0.0.1"
+edition = "2024"
+
+[dependencies]
+entity_core = { path = "../core" }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+camino = { workspace = true }
+walkdir = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"
