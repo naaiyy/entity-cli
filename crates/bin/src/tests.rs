@@ -4,8 +4,7 @@ use std::fs;
 use std::path::PathBuf;
 
 fn bin_cmd() -> Command {
-    let mut cmd = Command::cargo_bin("entity-cli").unwrap();
-    cmd
+    Command::cargo_bin("entity-cli").unwrap()
 }
 
 #[test]

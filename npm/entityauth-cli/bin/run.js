@@ -4,6 +4,7 @@ const { existsSync } = require('fs');
 const { join } = require('path');
 
 const binaryPath = join(__dirname, '..', 'dist', 'entity-cli');
+const packsPath = join(__dirname, '..', 'packs');
 
 if (!existsSync(binaryPath)) {
   console.error('[@entityauth/cli] Native binary not found. The postinstall step may have failed.');
@@ -13,7 +14,8 @@ if (!existsSync(binaryPath)) {
 }
 
 const env = { ...process.env, ENTITY_CLI_EXECUTABLE: '@entityauth/cli' };
-const child = spawn(binaryPath, process.argv.slice(2), {
+const args = ['--packs', packsPath, ...process.argv.slice(2)];
+const child = spawn(binaryPath, args, {
   stdio: 'inherit',
   env
 });

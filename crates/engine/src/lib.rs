@@ -13,18 +13,27 @@ pub struct Engine {
 }
 
 impl Engine {
-    pub fn bootstrap(packs_root: PathBuf) -> anyhow::Result<(Self, GraphPackage)> {
+    pub fn bootstrap(packs_root: PathBuf, product: Option<&str>) -> anyhow::Result<(Self, GraphPackage)> {
         let mut nodes: Vec<Node> = Vec::new();
         let mut loaded = 0usize;
         // Validate packs root
         if !packs_root.exists() || !packs_root.is_dir() {
             return Err(CoreError::PacksNotFound(packs_root.display().to_string()).into());
         }
-        // Scan packs/*/{docs,components}/nodes.json
-        for entry in fs::read_dir(&packs_root)
-            .map_err(|_| CoreError::PacksNotFound(packs_root.display().to_string()))?
-        {
-            let pack = entry?.path();
+        // Scan packs/*/{docs,components}/nodes.json or specific product if provided
+        let pack_dirs: Vec<PathBuf> = if let Some(prod) = product {
+            // Only scan the specific product directory
+            vec![packs_root.join(prod)]
+        } else {
+            // Scan all subdirectories
+            fs::read_dir(&packs_root)
+                .map_err(|_| CoreError::PacksNotFound(packs_root.display().to_string()))?
+                .filter_map(|entry| entry.ok().map(|e| e.path()))
+                .filter(|p| p.is_dir())
+                .collect()
+        };
+
+        for pack in pack_dirs {
             let docs_nodes = pack.join("docs").join("nodes.json");
             let comp_nodes = pack.join("components").join("nodes.json");
             if docs_nodes.exists() {
@@ -36,7 +45,7 @@ impl Engine {
                 loaded += 1;
             }
         }
-        info!(packs = %packs_root.display(), loaded_sets = loaded, nodes_count = nodes.len(), "loaded packs nodes");
+        info!(packs = %packs_root.display(), product = ?product, loaded_sets = loaded, nodes_count = nodes.len(), "loaded packs nodes");
 
         let registry = Registry::new(nodes.clone())?;
         // Determine executable from environment (shim sets ENTITY_CLI_EXECUTABLE), default to entity-cli
@@ -97,7 +106,7 @@ mod tests {
         write_file(&docs_dir.join("nodes.json"), &serde_json::to_string(&docs_nodes).unwrap());
         write_file(&comps_dir.join("nodes.json"), "[]");
 
-        let (_engine, graph) = Engine::bootstrap(packs.path().to_path_buf()).unwrap();
+        let (_engine, graph) = Engine::bootstrap(packs.path().to_path_buf(), None).unwrap();
         assert!(!graph.nodes.is_empty());
         assert!(graph.command_shapes.docs.template.contains("entity-cli docs read"));
         assert!(graph.command_shapes.ui.template.contains("entity-cli ui install"));

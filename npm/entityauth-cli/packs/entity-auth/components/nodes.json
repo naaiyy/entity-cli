@@ -1,0 +1,13 @@
+[
+  {
+    "id": "entityauth:components:install",
+    "kind": "component",
+    "title": "Install UI Components",
+    "meta": { "mode": ["single","multiple","all"], "names": ["auth-form"] },
+    "prerequisites": [
+      { "key": "selection.mode", "schema": { "enum": ["single","multiple","all"] } },
+      { "key": "selection.names", "schema": { "type": "array", "items": { "enum": ["auth-form"] } }, "optional": true }
+    ],
+    "payload": { "sourceRoot": "../../../src/components/entity-auth-ui" }
+  }
+]

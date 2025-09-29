@@ -53,12 +53,12 @@ fn to_snake(input: &str) -> String {
 }
 
 fn name_variants(name: &str) -> Vec<String> {
-    let mut variants = Vec::new();
-    variants.push(name.to_string());
-    variants.push(to_kebab(name));
-    variants.push(to_snake(name));
-    variants.push(name.to_ascii_lowercase());
-    variants
+    vec![
+        name.to_string(),
+        to_kebab(name),
+        to_snake(name),
+        name.to_ascii_lowercase(),
+    ]
 }
 
 pub struct DocsExecutor<'a> {

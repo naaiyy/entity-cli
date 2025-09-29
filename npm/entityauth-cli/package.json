@@ -1,6 +1,6 @@
 {
   "name": "@entityauth/cli",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Entity Auth CLI product shim for macOS arm64; downloads the native binary.",
   "bin": {
     "entityauth": "bin/run.js"
@@ -10,7 +10,7 @@
   },
   "os": ["darwin"],
   "cpu": ["arm64"],
-  "files": ["bin", "scripts", "dist", "README.md"],
+  "files": ["bin", "scripts", "dist", "packs", "README.md"],
   "repository": {
     "type": "git",
     "url": "https://github.com/naaiyy/entity-cli"

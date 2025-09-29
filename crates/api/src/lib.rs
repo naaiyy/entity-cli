@@ -42,7 +42,7 @@ struct SessionInitReq {
 
 async fn session_init(State(state): State<AppState>, Json(req): Json<SessionInitReq>) -> Json<serde_json::Value> {
     let packs_path = PathBuf::from(&req.packs_path);
-    match Engine::bootstrap(packs_path.clone()) {
+    match Engine::bootstrap(packs_path.clone(), req.product.as_deref()) {
         Ok((engine, graph)) => {
             {
                 let mut guard = state.inner.write().unwrap();
@@ -81,7 +81,7 @@ async fn docs_read(State(state): State<AppState>, Json(req): Json<DocsReadReq>) 
     let engine = if let Some(sess) = maybe_session {
         sess.engine
     } else if let Some(p) = req.packs_path.clone() {
-        match Engine::bootstrap(PathBuf::from(&p)) {
+        match Engine::bootstrap(PathBuf::from(&p), req.product.as_deref()) {
             Ok((engine, graph)) => {
                 let mut guard = state.inner.write().unwrap();
                 *guard = Some(SessionState { engine: engine.clone(), graph, packs_path: PathBuf::from(p.clone()) });
@@ -156,7 +156,7 @@ async fn ui_install(State(state): State<AppState>, Json(req): Json<UiInstallReq>
     let engine = if let Some(sess) = maybe_session {
         sess.engine
     } else if let Some(p) = req.packs_path.clone() {
-        match Engine::bootstrap(PathBuf::from(&p)) {
+        match Engine::bootstrap(PathBuf::from(&p), req.product.as_deref()) {
             Ok((engine, graph)) => {
                 let mut guard = state.inner.write().unwrap();
                 *guard = Some(SessionState { engine: engine.clone(), graph, packs_path: PathBuf::from(p.clone()) });

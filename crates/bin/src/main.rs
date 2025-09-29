@@ -113,9 +113,9 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Init(InitArgs { product: _product }) => {
+        Commands::Init(InitArgs { product }) => {
             let packs = resolve_packs(cli.packs.clone().unwrap_or_else(|| PathBuf::from("packs")))?;
-            match Engine::bootstrap(packs) {
+            match Engine::bootstrap(packs, Some(&product)) {
                 Ok((_engine, graph)) => {
                     println!("{}", serde_json::to_string_pretty(&graph)?);
                 }
@@ -129,7 +129,7 @@ fn main() -> Result<()> {
             }
         }
         Commands::Docs(DocsCmd { command }) => match command {
-            DocsSubcommand::Read(DocsReadArgs { product: _product, node }) => {
+            DocsSubcommand::Read(DocsReadArgs { product, node }) => {
                 let packs = match resolve_packs(cli.packs.clone().unwrap_or_else(|| PathBuf::from("packs"))) {
                     Ok(p) => p,
                     Err(e) => {
@@ -137,10 +137,10 @@ fn main() -> Result<()> {
                         return Ok(());
                     }
                 };
-                match Engine::bootstrap(packs) {
+                match Engine::bootstrap(packs, Some(&product)) {
                     Ok((engine, _graph)) => {
                         let exec = DocsExecutor::new(engine.registry());
-                        match exec.read(&node.as_str()) {
+                        match exec.read(node.as_str()) {
                             Ok(content) => {
                                 println!("{}", content);
                             }
@@ -158,7 +158,7 @@ fn main() -> Result<()> {
             }
         },
         Commands::Ui(UiCmd { command }) => match command {
-            UiSubcommand::Install(UiInstallArgs { product: _product, mode, names, node }) => {
+            UiSubcommand::Install(UiInstallArgs { product, mode, names, node }) => {
                 // Early missing selections handling to align with HTTP API behavior
                 if mode.is_none() {
                     emit_error(&CoreError::MissingSelections(vec![
@@ -175,11 +175,11 @@ fn main() -> Result<()> {
                         return Ok(());
                     }
                 };
-                match Engine::bootstrap(packs) {
+                match Engine::bootstrap(packs, Some(&product)) {
                     Ok((engine, _graph)) => {
                         let exec = ComponentsExecutor::new(engine.registry());
                         let cwd = std::env::current_dir().unwrap();
-                        match exec.install(&node.as_str(), &mode.unwrap(), names, &cwd) {
+                        match exec.install(node.as_str(), &mode.unwrap(), names, &cwd) {
                             Ok(report) => {
                                 println!(
                                     "{}",
