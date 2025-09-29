@@ -1,3 +1,6 @@
 target/
 **/*.rs.bk
 
+# Private operational notes (not checked in)
+ops-notes/
+
