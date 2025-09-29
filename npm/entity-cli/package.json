@@ -1,0 +1,25 @@
+{
+  "name": "entity-cli",
+  "version": "0.0.1",
+  "description": "Entity CLI shim for macOS arm64 that downloads the native binary from GitHub Releases.",
+  "bin": {
+    "entity-cli": "bin/run.js"
+  },
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js"
+  },
+  "os": ["darwin"],
+  "cpu": ["arm64"],
+  "files": ["bin", "scripts", "dist", "README.md"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/naaiyy/entity-cli"
+  },
+  "homepage": "https://github.com/naaiyy/entity-cli#readme",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}
+
+

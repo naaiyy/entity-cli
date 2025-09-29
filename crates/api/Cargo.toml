@@ -1,0 +1,19 @@
+[package]
+name = "api"
+version = "0.0.1"
+edition = "2024"
+
+[dependencies]
+engine = { path = "../engine" }
+entity_core = { path = "../core" }
+executors = { path = "../executors" }
+anyhow = { workspace = true }
+axum = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tower = { workspace = true }
+tempfile = { workspace = true }

@@ -1,0 +1,23 @@
+[package]
+name = "entity-cli"
+version = "0.0.1"
+edition = "2024"
+
+[dependencies]
+engine = { path = "../engine" }
+entity_core = { path = "../core" }
+executors = { path = "../executors" }
+anyhow = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+axum = { workspace = true }
+tokio = { workspace = true }
+api = { path = "../api" }
+
+[dev-dependencies]
+assert_cmd = "2"
+predicates = "3"
+tempfile = { workspace = true }
