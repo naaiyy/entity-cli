@@ -1,12 +1,12 @@
 {
   "name": "@entityauth/cli",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Entity Auth CLI product shim for macOS arm64; downloads the native binary.",
   "bin": {
     "entityauth": "bin/run.js"
   },
   "scripts": {
-    "postinstall": "node scripts/postinstall.js"
+    "postinstall": "ENTITY_CLI_EXECUTABLE=@entityauth/cli node scripts/postinstall.js"
   },
   "os": ["darwin"],
   "cpu": ["arm64"],

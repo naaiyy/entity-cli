@@ -12,8 +12,10 @@ if (!existsSync(binaryPath)) {
   process.exit(1);
 }
 
+const env = { ...process.env, ENTITY_CLI_EXECUTABLE: '@entityauth/cli' };
 const child = spawn(binaryPath, process.argv.slice(2), {
-  stdio: 'inherit'
+  stdio: 'inherit',
+  env
 });
 
 child.on('exit', (code) => process.exit(code ?? 0));

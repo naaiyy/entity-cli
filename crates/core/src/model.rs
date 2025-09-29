@@ -44,10 +44,15 @@ pub struct Prerequisite {
 pub struct GraphPackage {
     pub nodes: Vec<Node>,
     pub command_shapes: CommandShapes,
+    /// Name of the executable to use in examples/materialized templates
+    pub executable: String,
+    /// High-level semantics to avoid guessing in agents
+    pub semantics: Semantics,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandShapes {
+    pub init: InitCommandShape,
     pub docs: DocsCommandShape,
     pub ui: UiCommandShape,
 }
@@ -60,4 +65,25 @@ pub struct DocsCommandShape {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UiCommandShape {
     pub template: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InitCommandShape {
+    pub template: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Semantics {
+    /// Where write operations target by default
+    pub writes_to: String, // e.g., "cwd"
+    /// Whether component installs overwrite existing files
+    pub overwrite_on_write: bool,
+    /// Supported platforms (informational)
+    pub platforms: Platforms,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Platforms {
+    pub os: Vec<String>,
+    pub arch: Vec<String>,
 }

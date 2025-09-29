@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use entity_core::error::CoreError;
 use entity_core::loader::load_nodes_from_file;
-use entity_core::model::{CommandShapes, DocsCommandShape, GraphPackage, Node, UiCommandShape};
+use entity_core::model::{CommandShapes, DocsCommandShape, GraphPackage, InitCommandShape, Node, Platforms, Semantics, UiCommandShape};
 use entity_core::registry::Registry;
 use tracing::info;
 
@@ -39,13 +39,23 @@ impl Engine {
         info!(packs = %packs_root.display(), loaded_sets = loaded, nodes_count = nodes.len(), "loaded packs nodes");
 
         let registry = Registry::new(nodes.clone())?;
+        // Determine executable from environment (shim sets ENTITY_CLI_EXECUTABLE), default to entity-cli
+        let exe = std::env::var("ENTITY_CLI_EXECUTABLE").unwrap_or_else(|_| "entity-cli".to_string());
+
         let command_shapes = CommandShapes {
-            docs: DocsCommandShape { template: "entity-cli docs read <product> --node <id>".to_string() },
-            ui: UiCommandShape { template: "entity-cli ui install <product> --mode <single|multiple|all> [--names <Name...>]".to_string() },
+            init: InitCommandShape { template: format!("{} init <product>", exe) },
+            docs: DocsCommandShape { template: format!("{} docs read <product> --node <id>", exe) },
+            ui: UiCommandShape { template: format!("{} ui install <product> --mode <single|multiple|all> [--names <Name...>]", exe) },
         };
         let graph = GraphPackage {
             nodes,
             command_shapes,
+            executable: exe,
+            semantics: Semantics {
+                writes_to: "cwd".to_string(),
+                overwrite_on_write: true,
+                platforms: Platforms { os: vec!["darwin".into()], arch: vec!["arm64".into()] },
+            },
         };
         Ok((Self { registry }, graph))
     }
