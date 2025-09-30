@@ -60,6 +60,14 @@ impl Registry {
                     )));
                 }
             }
+            NodePayload::Setup { template_root, .. } => {
+                if !std::path::Path::new(template_root).exists() {
+                    return Err(CoreError::InvalidDescriptor(format!(
+                        "setup template root not found for node {}: {}",
+                        node.id, template_root
+                    )));
+                }
+            }
         }
 
         // Index by tag and section if present
@@ -81,6 +89,7 @@ impl Registry {
         match node.kind {
             NodeKind::Doc => self.docs.push(node.id.clone()),
             NodeKind::Component => self.components.push(node.id.clone()),
+            NodeKind::Setup => { /* currently not indexed; may add later */ }
         }
 
         self.nodes.insert(node.id.clone(), node);

@@ -31,6 +31,13 @@ pub fn load_nodes_from_file(path: &Path) -> CoreResult<Vec<Node>> {
                     *source_root = abs.to_string_lossy().to_string();
                 }
             }
+            NodePayload::Setup { template_root, .. } => {
+                let p = PathBuf::from(&*template_root);
+                if p.is_relative() {
+                    let abs = base_dir.join(p);
+                    *template_root = abs.to_string_lossy().to_string();
+                }
+            }
         }
         nodes.push(node);
     }
@@ -59,6 +66,14 @@ impl TryFrom<Value> for Node {
                 if source_root.is_empty() {
                     return Err(CoreError::InvalidDescriptor(format!(
                         "component node {} missing source_root",
+                        node.id
+                    )));
+                }
+            }
+            NodePayload::Setup { template_root, .. } => {
+                if template_root.is_empty() {
+                    return Err(CoreError::InvalidDescriptor(format!(
+                        "setup node {} missing template_root",
                         node.id
                     )));
                 }

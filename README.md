@@ -33,6 +33,8 @@ Notes:
   - `entity-cli docs read <product> --node <docId>`
 - Components:
   - `entity-cli ui install <product> --mode <single|multiple|all> [--names <Name...>]`
+- Setup:
+  - `entity-cli setup run <product> --node <setupId> [--workspace <path>]`
 - Initialize session (emit graph):
   - `entity-cli init <product>`
 
@@ -44,6 +46,42 @@ Notes:
 - `packs/entity-auth/docs/content/*.md`
 - `packs/entity-auth/components/nodes.json`
 - `packs/entity-auth/components/ui/<Name>/...`
+- `packs/entity-auth/setup/nodes.json`
+- `packs/entity-auth/setup/templates/<templateName>/entity-auth/{client.ts,provider.tsx,middleware.ts,components/...}`
+
+## Setup nodes
+
+Setup is a first-class node kind that lets products define end-to-end app initialization in one command.
+
+- What the engine does:
+  - Executes optional, non-interactive scaffold commands (e.g., `create-next-app`).
+  - Copies the product-authored template tree into `workspace/entity-auth`.
+  - Emits a JSON report with executed commands and copied paths.
+
+- How products define setup:
+  - Add a `setup/nodes.json` file with one or more setup nodes. Each node’s payload includes:
+    - `templateRoot`: path to the inner directory whose contents should land directly under `entity-auth`.
+    - `commands`: array of shell commands to run before copying (optional).
+  - Place template files under `setup/templates/<name>/entity-auth/...`.
+
+- How consumers run it:
+  - Generic engine: `entity-cli setup run <product> --node <setupId> [--workspace <path>]`
+  - Product shim (bundled packs): `npx @<product>/cli setup run <product> --node <setupId>`
+
+Example (Entity Auth):
+
+```bash
+# Emit graph (shim passes packs automatically)
+npx @entityauth/cli init entity-auth
+
+# Scaffold Next.js + install baseline files under ./entity-auth
+npx @entityauth/cli setup run entity-auth --node entityauth:setup:basic
+```
+
+Best practices:
+- Make scaffold commands non-interactive and idempotent.
+- Point `templateRoot` to the inner `entity-auth` directory to avoid `entity-auth/entity-auth`.
+- Provide multiple templates (e.g., basic, with-db) with descriptive `meta.tags`.
 
 ## Distribution
 - Prebuilt binaries attached to GitHub Releases.

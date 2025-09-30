@@ -6,7 +6,7 @@ use axum::serve;
 use clap::{Args, Parser, Subcommand};
 use engine::Engine;
 use entity_core::error::CoreError;
-use executors::{ComponentsExecutor, DocsExecutor};
+use executors::{ComponentsExecutor, DocsExecutor, SetupExecutor};
 use std::fs;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
@@ -41,6 +41,9 @@ enum Commands {
 
     /// UI installation commands
     Ui(UiCmd),
+
+    /// Setup commands
+    Setup(SetupCmd),
 
     /// Serve minimal HTTP API for agents
     Serve(ServeCmd),
@@ -103,6 +106,30 @@ struct ServeCmd {
     /// Address to bind (e.g., 127.0.0.1:8787)
     #[arg(long, default_value = "127.0.0.1:8787")]
     addr: String,
+}
+
+#[derive(Args, Debug)]
+struct SetupCmd {
+    #[command(subcommand)]
+    command: SetupSubcommand,
+}
+
+#[derive(Subcommand, Debug)]
+enum SetupSubcommand {
+    /// Run a setup template (scaffold + copy /entity-auth/*)
+    Run(SetupRunArgs),
+}
+
+#[derive(Args, Debug)]
+struct SetupRunArgs {
+    /// Product/pack name (e.g., entity-auth)
+    product: String,
+    /// Setup node id (e.g., entityauth:setup:basic)
+    #[arg(long)]
+    node: String,
+    /// Workspace directory to operate in (defaults to cwd)
+    #[arg(long)]
+    workspace: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -211,6 +238,34 @@ fn main() -> Result<()> {
                 serve(listener, router.into_make_service()).await.unwrap();
             });
         }
+        Commands::Setup(SetupCmd { command }) => match command {
+            SetupSubcommand::Run(SetupRunArgs { product, node, workspace }) => {
+                let packs = match resolve_packs(cli.packs.clone().unwrap_or_else(|| PathBuf::from("packs"))) {
+                    Ok(p) => p,
+                    Err(e) => { emit_error(&CoreError::InvalidDescriptor(e.to_string())); return Ok(()); }
+                };
+                match Engine::bootstrap(packs, Some(&product)) {
+                    Ok((engine, _graph)) => {
+                        let exec = SetupExecutor::new(engine.registry());
+                        let ws = workspace.map(PathBuf::from).unwrap_or_else(|| std::env::current_dir().unwrap());
+                        match exec.run(node.as_str(), &ws) {
+                            Ok(report) => {
+                                println!("{}", serde_json::to_string_pretty(&serde_json::json!({
+                                    "scaffolded": report.scaffolded,
+                                    "copied": report.copied.iter().map(|c| serde_json::json!({"from": c.from, "to": c.to, "count": c.count})).collect::<Vec<_>>(),
+                                    "notes": report.notes,
+                                }))?);
+                            }
+                            Err(err) => emit_error(&err),
+                        }
+                    }
+                    Err(err) => {
+                        if let Some(core) = err.downcast_ref::<CoreError>() { emit_error(core); }
+                        else { emit_error(&CoreError::InvalidDescriptor(err.to_string())); }
+                    }
+                }
+            }
+        },
     }
 
     Ok(())

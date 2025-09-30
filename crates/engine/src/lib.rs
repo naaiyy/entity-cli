@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use entity_core::error::CoreError;
 use entity_core::loader::load_nodes_from_file;
-use entity_core::model::{CommandShapes, DocsCommandShape, GraphPackage, InitCommandShape, Node, Platforms, Semantics, UiCommandShape};
+use entity_core::model::{CommandShapes, DocsCommandShape, GraphPackage, InitCommandShape, Node, Platforms, Semantics, UiCommandShape, SetupCommandShape};
 use entity_core::registry::Registry;
 use tracing::info;
 
@@ -20,7 +20,7 @@ impl Engine {
         if !packs_root.exists() || !packs_root.is_dir() {
             return Err(CoreError::PacksNotFound(packs_root.display().to_string()).into());
         }
-        // Scan packs/*/{docs,components}/nodes.json or specific product if provided
+        // Scan packs/*/{docs,components,setup}/nodes.json or specific product if provided
         let pack_dirs: Vec<PathBuf> = if let Some(prod) = product {
             // Only scan the specific product directory
             vec![packs_root.join(prod)]
@@ -36,12 +36,17 @@ impl Engine {
         for pack in pack_dirs {
             let docs_nodes = pack.join("docs").join("nodes.json");
             let comp_nodes = pack.join("components").join("nodes.json");
+            let setup_nodes = pack.join("setup").join("nodes.json");
             if docs_nodes.exists() {
                 nodes.extend(load_nodes_from_file(&docs_nodes)?);
                 loaded += 1;
             }
             if comp_nodes.exists() {
                 nodes.extend(load_nodes_from_file(&comp_nodes)?);
+                loaded += 1;
+            }
+            if setup_nodes.exists() {
+                nodes.extend(load_nodes_from_file(&setup_nodes)?);
                 loaded += 1;
             }
         }
@@ -55,6 +60,7 @@ impl Engine {
             init: InitCommandShape { template: format!("{} init <product>", exe) },
             docs: DocsCommandShape { template: format!("{} docs read <product> --node <id>", exe) },
             ui: UiCommandShape { template: format!("{} ui install <product> --mode <single|multiple|all> [--names <Name...>]", exe) },
+            setup: SetupCommandShape { template: format!("{} setup run <product> --node <id> [--workspace <path>]", exe) },
         };
         let graph = GraphPackage {
             nodes,

@@ -4,7 +4,7 @@ use std::sync::{Arc, RwLock};
 use axum::{Json, Router, routing::post, extract::State};
 use engine::Engine;
 use entity_core::model::GraphPackage;
-use executors::{ComponentsExecutor, DocsExecutor};
+use executors::{ComponentsExecutor, DocsExecutor, SetupExecutor};
 use serde::Deserialize;
 
 #[derive(Clone, Default)]
@@ -28,6 +28,7 @@ pub async fn build_router() -> anyhow::Result<Router> {
         .route("/session/init", post(session_init))
         .route("/docs/read", post(docs_read))
         .route("/ui/install", post(ui_install))
+        .route("/setup/run", post(setup_run))
         .with_state(state);
     Ok(router)
 }
@@ -210,6 +211,31 @@ async fn ui_install(State(state): State<AppState>, Json(req): Json<UiInstallReq>
             };
             Json(serde_json::to_value(err.envelope(details)).unwrap())
         }
+    }
+}
+
+#[derive(Deserialize)]
+struct SetupRunReq {
+    #[serde(rename = "nodeId")]
+    node_id: String,
+    workspace: Option<String>,
+}
+
+async fn setup_run(State(state): State<AppState>, Json(req): Json<SetupRunReq>) -> Json<serde_json::Value> {
+    let Some(SessionState { engine, .. }) = state.inner.read().unwrap().clone() else {
+        let env = entity_core::error::CoreError::InvalidDescriptor("session not initialized".into()).envelope(None);
+        return Json(serde_json::to_value(env).unwrap());
+    };
+
+    let exec = SetupExecutor::new(engine.registry());
+    let ws = req.workspace.map(PathBuf::from).unwrap_or_else(|| std::env::current_dir().unwrap());
+    match exec.run(&req.node_id, &ws) {
+        Ok(report) => Json(serde_json::json!({
+            "scaffolded": report.scaffolded,
+            "copied": report.copied.iter().map(|c| serde_json::json!({"from": c.from, "to": c.to, "count": c.count})).collect::<Vec<_>>(),
+            "notes": report.notes,
+        })),
+        Err(err) => Json(serde_json::to_value(err.envelope(None)).unwrap()),
     }
 }
 

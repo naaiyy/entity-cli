@@ -17,6 +17,7 @@ pub struct Node {
 pub enum NodeKind {
     Doc,
     Component,
+    Setup,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29,6 +30,12 @@ pub enum NodePayload {
     Component {
         #[serde(rename = "sourceRoot")]
         source_root: String,
+    },
+    Setup {
+        #[serde(rename = "templateRoot")]
+        template_root: String,
+        #[serde(default)]
+        commands: Option<Vec<String>>,
     },
 }
 
@@ -55,6 +62,7 @@ pub struct CommandShapes {
     pub init: InitCommandShape,
     pub docs: DocsCommandShape,
     pub ui: UiCommandShape,
+    pub setup: SetupCommandShape,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -69,6 +77,11 @@ pub struct UiCommandShape {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InitCommandShape {
+    pub template: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SetupCommandShape {
     pub template: String,
 }
 
