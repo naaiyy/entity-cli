@@ -78,6 +78,7 @@ pub(crate) fn bridge_node(
             config_template: config_template.map(|p| p.display().to_string()),
             spawn: None,
             logs_path: logs_path.map(|p| p.display().to_string()),
+            heartbeat_interval_ms: Some(5_000),
         },
     }
 }

@@ -161,10 +161,60 @@ fn bridge_start_persists_state_and_status_reports() {
         .success()
         .stdout(predicate::str::contains("\"status\": \"pending\""));
 
-    let state_dir = workspace
+    let state_file = workspace
         .path()
         .join(".entitycli/bridge/state/entityauth_bridge_test.json");
-    assert!(state_dir.exists());
+    assert!(state_file.exists());
+
+    // Attach and heartbeat update expectations (must run before stop removes state)
+    let mut attach = bin_cmd();
+    attach.current_dir(workspace.path());
+    attach
+        .arg("bridge")
+        .arg("attach")
+        .arg("entity-auth")
+        .arg("--node")
+        .arg("entityauth:bridge:test")
+        .arg("--pid")
+        .arg("1234")
+        .arg("--packs")
+        .arg(packs.path());
+    attach
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"pid\": 1234"));
+
+    let mut heartbeat = bin_cmd();
+    heartbeat.current_dir(workspace.path());
+    heartbeat
+        .arg("bridge")
+        .arg("heartbeat")
+        .arg("entity-auth")
+        .arg("--node")
+        .arg("entityauth:bridge:test")
+        .arg("--status")
+        .arg("running")
+        .arg("--packs")
+        .arg(packs.path());
+    heartbeat
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"status\": \"running\""));
+
+    let mut status_after_heartbeat = bin_cmd();
+    status_after_heartbeat.current_dir(workspace.path());
+    status_after_heartbeat
+        .arg("bridge")
+        .arg("status")
+        .arg("entity-auth")
+        .arg("--node")
+        .arg("entityauth:bridge:test")
+        .arg("--packs")
+        .arg(packs.path());
+    status_after_heartbeat
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"status\": \"running\""));
 
     let mut stop = bin_cmd();
     stop.current_dir(workspace.path());
@@ -182,16 +232,14 @@ fn bridge_start_persists_state_and_status_reports() {
         Some(true)
     );
 
-    let state_json: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(&state_dir).unwrap()).unwrap();
-    assert_eq!(
-        state_json.get("status").and_then(|v| v.as_str()),
-        Some("stopped")
+    assert!(
+        !state_file.exists(),
+        "state file should be removed after bridge stop"
     );
 
-    let mut status_again = bin_cmd();
-    status_again.current_dir(workspace.path());
-    status_again
+    let mut status_after_stop = bin_cmd();
+    status_after_stop.current_dir(workspace.path());
+    status_after_stop
         .arg("bridge")
         .arg("status")
         .arg("entity-auth")
@@ -199,10 +247,10 @@ fn bridge_start_persists_state_and_status_reports() {
         .arg("entityauth:bridge:test")
         .arg("--packs")
         .arg(packs.path());
-    status_again
+    status_after_stop
         .assert()
         .success()
-        .stdout(predicate::str::contains("\"status\": \"stopped\""));
+        .stdout(predicate::str::contains("TARGET_NOT_FOUND"));
 }
 
 #[test]

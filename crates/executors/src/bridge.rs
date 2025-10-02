@@ -35,10 +35,25 @@ pub struct BridgeProcessState {
     pub packs_root: String,
     #[serde(rename = "process")]
     pub process: BridgeProcessStateProcess,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pid: Option<i32>,
     pub status: String,
-    #[serde(rename = "logsPath")]
+    #[serde(
+        rename = "statusMessage",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub status_message: Option<String>,
+    #[serde(rename = "logsPath", default, skip_serializing_if = "Option::is_none")]
     pub logs_path: Option<String>,
+    #[serde(
+        rename = "heartbeatAt",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub heartbeat_at: Option<u64>,
+    #[serde(rename = "exitCode", default, skip_serializing_if = "Option::is_none")]
+    pub exit_code: Option<i32>,
     #[serde(rename = "updatedAt")]
     pub updated_at: u64,
 }
@@ -47,6 +62,7 @@ pub struct BridgeProcessState {
 pub struct BridgeProcessStateProcess {
     pub entry: String,
     pub args: Vec<String>,
+    #[serde(default)]
     pub env: Vec<(String, String)>,
     pub cwd: Option<String>,
     #[serde(rename = "configPath")]
@@ -230,7 +246,10 @@ impl<'a> BridgeExecutor<'a> {
             },
             pid: None,
             status: "pending".into(),
+            status_message: None,
             logs_path: process.logs_path,
+            heartbeat_at: None,
+            exit_code: None,
             updated_at: Self::now_ms(),
         };
         let file = Self::state_file(workspace, node_id);
@@ -274,37 +293,87 @@ impl<'a> BridgeExecutor<'a> {
         Ok(())
     }
 
-    pub fn stop(workspace: &Path, node_id: &str) -> CoreResult<Option<BridgeStopResult>> {
-        let file = Self::state_file(workspace, node_id);
-        if !file.exists() {
-            return Ok(None);
-        }
-        let mut signal_pid: Option<i32> = None;
-        let updated = Self::update_state(workspace, node_id, |state| {
-            signal_pid = state.pid;
-            state.status = "stopped".into();
-            state.pid = None;
-        })?;
-        if let Some(state) = updated {
-            if let Some(pid_value) = signal_pid {
-                #[cfg(unix)]
-                {
-                    let _ = nix::sys::signal::kill(
-                        nix::unistd::Pid::from_raw(pid_value),
-                        nix::sys::signal::Signal::SIGINT,
-                    );
-                }
-                #[cfg(not(unix))]
-                {
-                    let _ = pid_value;
-                }
+    pub fn attach_pid(
+        workspace: &Path,
+        node_id: &str,
+        pid: i32,
+        status: Option<&str>,
+        status_message: Option<&str>,
+    ) -> CoreResult<Option<BridgeProcessState>> {
+        Self::update_state(workspace, node_id, |state| {
+            state.pid = Some(pid);
+            if let Some(status) = status {
+                state.status = status.to_string();
+            } else {
+                state.status = "running".into();
             }
-            return Ok(Some(BridgeStopResult {
-                pid: signal_pid,
-                status: state.status,
-                state_id: state.id,
-            }));
+            state.status_message = status_message.map(|s| s.to_string());
+            state.heartbeat_at = Some(Self::now_ms());
+            state.exit_code = None;
+        })
+    }
+
+    pub fn heartbeat(
+        workspace: &Path,
+        node_id: &str,
+        status: Option<&str>,
+        status_message: Option<&str>,
+    ) -> CoreResult<Option<BridgeProcessState>> {
+        Self::update_state(workspace, node_id, |state| {
+            if let Some(status) = status {
+                state.status = status.to_string();
+            }
+            if status_message.is_some() {
+                state.status_message = status_message.map(|s| s.to_string());
+            }
+            state.heartbeat_at = Some(Self::now_ms());
+        })
+    }
+
+    pub fn complete(
+        workspace: &Path,
+        node_id: &str,
+        exit_code: Option<i32>,
+        status: Option<&str>,
+        status_message: Option<&str>,
+    ) -> CoreResult<Option<BridgeProcessState>> {
+        Self::update_state(workspace, node_id, |state| {
+            state.pid = None;
+            state.exit_code = exit_code;
+            if let Some(status) = status {
+                state.status = status.to_string();
+            } else {
+                state.status = "exited".into();
+            }
+            state.status_message = status_message.map(|s| s.to_string());
+            state.heartbeat_at = Some(Self::now_ms());
+        })
+    }
+
+    pub fn stop(workspace: &Path, node_id: &str) -> CoreResult<Option<BridgeStopResult>> {
+        let Some(state) = Self::read_state(workspace, node_id)? else {
+            return Ok(None);
+        };
+        let signal_pid = state.pid;
+        if let Some(pid_value) = signal_pid {
+            #[cfg(unix)]
+            {
+                let _ = nix::sys::signal::kill(
+                    nix::unistd::Pid::from_raw(pid_value),
+                    nix::sys::signal::Signal::SIGINT,
+                );
+            }
+            #[cfg(not(unix))]
+            {
+                let _ = pid_value;
+            }
         }
-        Ok(None)
+        // Remove state file once stop has been requested.
+        Self::remove_state(workspace, node_id)?;
+        Ok(Some(BridgeStopResult {
+            pid: signal_pid,
+            status: "stopped".into(),
+            state_id: state.id,
+        }))
     }
 }

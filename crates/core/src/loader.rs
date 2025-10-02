@@ -44,6 +44,7 @@ pub fn load_nodes_from_file(path: &Path) -> CoreResult<Vec<Node>> {
                 config_template,
                 spawn,
                 logs_path,
+                heartbeat_interval_ms: _,
             } => {
                 if let Some(root) = template_root {
                     let p = Path::new(root);

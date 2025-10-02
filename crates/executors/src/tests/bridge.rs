@@ -49,6 +49,48 @@ fn scaffold_and_state_roundtrip() {
     assert_eq!(state.id, "state-123");
     assert_eq!(state.status, "pending");
 
+    BridgeExecutor::attach_pid(
+        workspace.path(),
+        "x:bridge:test",
+        1234,
+        Some("running"),
+        Some("up"),
+    )
+    .unwrap();
+    let state = BridgeExecutor::read_state(workspace.path(), "x:bridge:test")
+        .unwrap()
+        .expect("state");
+    assert_eq!(state.pid, Some(1234));
+    assert_eq!(state.status, "running");
+    assert_eq!(state.status_message.as_deref(), Some("up"));
+
+    BridgeExecutor::heartbeat(
+        workspace.path(),
+        "x:bridge:test",
+        Some("healthy"),
+        Some("ok"),
+    )
+    .unwrap();
+    let state = BridgeExecutor::read_state(workspace.path(), "x:bridge:test")
+        .unwrap()
+        .expect("state");
+    assert_eq!(state.status, "healthy");
+    assert_eq!(state.status_message.as_deref(), Some("ok"));
+
+    BridgeExecutor::complete(
+        workspace.path(),
+        "x:bridge:test",
+        Some(0),
+        Some("exited"),
+        Some("done"),
+    )
+    .unwrap();
+    let state = BridgeExecutor::read_state(workspace.path(), "x:bridge:test")
+        .unwrap()
+        .expect("state");
+    assert_eq!(state.exit_code, Some(0));
+    assert_eq!(state.pid, None);
+
     let stop = BridgeExecutor::stop(workspace.path(), "x:bridge:test")
         .unwrap()
         .expect("stop");

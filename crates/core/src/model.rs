@@ -49,6 +49,8 @@ pub enum NodePayload {
         spawn: Option<BridgeSpawnDescriptor>,
         #[serde(default, rename = "logsPath")]
         logs_path: Option<String>,
+        #[serde(default, rename = "heartbeatIntervalMs")]
+        heartbeat_interval_ms: Option<u64>,
     },
 }
 
@@ -123,6 +125,10 @@ pub struct BridgeCommandShape {
     pub start_template: String,
     pub status_template: String,
     pub stop_template: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attach_template: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub heartbeat_template: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -137,6 +137,10 @@ pub enum BridgeSubcommand {
     Status(BridgeStatusArgs),
     /// Stop bridge runtime
     Stop(BridgeStopArgs),
+    /// Attach a running PID to bridge state
+    Attach(BridgeAttachArgs),
+    /// Update bridge heartbeat/status information
+    Heartbeat(BridgeHeartbeatArgs),
 }
 
 #[derive(Args, Debug)]
@@ -173,4 +177,31 @@ pub struct BridgeStatusArgs {
 pub struct BridgeStopArgs {
     #[command(flatten)]
     pub base: BridgeArgsBase,
+}
+
+#[derive(Args, Debug)]
+pub struct BridgeAttachArgs {
+    #[command(flatten)]
+    pub base: BridgeArgsBase,
+    /// PID of the running bridge process
+    #[arg(long)]
+    pub pid: i32,
+    /// Optional status label to record for the process
+    #[arg(long)]
+    pub status: Option<String>,
+    /// Optional human-readable status message
+    #[arg(long)]
+    pub status_message: Option<String>,
+}
+
+#[derive(Args, Debug)]
+pub struct BridgeHeartbeatArgs {
+    #[command(flatten)]
+    pub base: BridgeArgsBase,
+    /// Optional status label to record for the process
+    #[arg(long)]
+    pub status: Option<String>,
+    /// Optional human-readable status message
+    #[arg(long)]
+    pub status_message: Option<String>,
 }

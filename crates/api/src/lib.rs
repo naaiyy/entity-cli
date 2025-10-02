@@ -23,6 +23,8 @@ pub async fn build_router() -> anyhow::Result<Router> {
         .route("/bridge/start", post(bridge::bridge_start))
         .route("/bridge/status", post(bridge::bridge_status))
         .route("/bridge/stop", post(bridge::bridge_stop))
+        .route("/bridge/attach", post(bridge::bridge_attach))
+        .route("/bridge/heartbeat", post(bridge::bridge_heartbeat))
         .with_state(state);
     Ok(router)
 }

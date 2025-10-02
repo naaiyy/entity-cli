@@ -104,6 +104,14 @@ impl Engine {
                     "{} bridge stop <product> --node <id> [--workspace <path>]",
                     exe
                 ),
+                attach_template: Some(format!(
+                    "{} bridge attach <product> --node <id> --pid <pid> [--workspace <path>] [--status <label>] [--status-message <text>]",
+                    exe
+                )),
+                heartbeat_template: Some(format!(
+                    "{} bridge heartbeat <product> --node <id> [--workspace <path>] [--status <label>] [--status-message <text>]",
+                    exe
+                )),
             }),
         };
         let graph = GraphPackage {

@@ -42,15 +42,19 @@ Notes:
 - Bridge:
   - `entity-cli bridge scaffold <product> --node <bridgeId> [--workspace <path>]`
   - `entity-cli bridge start <product> --node <bridgeId> [--workspace <path>]`
+  - `entity-cli bridge attach <product> --node <bridgeId> --pid <pid> [--status <label>] [--status-message <text>] [--workspace <path>]`
+  - `entity-cli bridge heartbeat <product> --node <bridgeId> [--status <label>] [--status-message <text>] [--workspace <path>]`
   - `entity-cli bridge status <product> --node <bridgeId> [--workspace <path>]`
   - `entity-cli bridge stop <product> --node <bridgeId> [--workspace <path>]`
 
 ### Bridge workflow
 
 - `bridge scaffold` copies the template tree (`bridge/templates/<name>`) into the workspace under `entity-auth/bridge/<name>`.
-- `bridge start` resolves the runner file (`runner.mjs` or spawn descriptor), generates a process JSON payload, and persists it to `.entitycli/bridge/state/<node>.json`. This JSON includes env defaults, arguments, and optional config/log paths so supervisors can spawn the Node process.
-- `bridge status` simply reads the state file. Supervisors should update the `pid` and `status` fields as they launch or terminate processes; the CLI mirrors those values back to users/agents.
-- `bridge stop` marks the state as stopped and clears the PID to signal the supervisor to terminate the process.
+- `bridge start` resolves the runner file (`runner.mjs` or spawn descriptor), generates a process JSON payload, and persists it to `.entitycli/bridge/state/<node>.json`. This JSON includes env defaults, arguments, config/log paths, and a freshly generated `stateId`.
+- Supervisors spawn the worker (typically a Node replicator), then call `bridge attach` with the child PID (and optional status message). This updates the persisted state so `status` reflects the running process.
+- Workers should periodically call `bridge heartbeat` (or emit heartbeats via the runtime hooks) to refresh status/health metadata.
+- `bridge status` reads the state file and exposes the latest PID, heartbeat timestamp, logs path, etc.
+- `bridge stop` signals the persisted state as stopped, sends `SIGINT` to the tracked PID on unix hosts, and removes the state file after the stop command completes.
 
 ## Errors (JSON envelope)
 - `UNKNOWN_NODE`, `WRONG_KIND`, `MISSING_SELECTIONS`, `INVALID_SELECTION`, `INVALID_SELECTION` (names), `PACKS_NOT_FOUND`, `TARGET_NOT_FOUND`, `TARGET_NOT_WRITABLE`.

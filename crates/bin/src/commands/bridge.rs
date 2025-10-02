@@ -5,7 +5,7 @@ use engine::Engine;
 use executors::BridgeExecutor;
 use uuid::Uuid;
 
-use crate::cli::{BridgeCmd, BridgeSubcommand};
+use crate::cli::{BridgeAttachArgs, BridgeCmd, BridgeHeartbeatArgs, BridgeSubcommand};
 use crate::support::{AppContext, emit_error};
 
 pub fn run(ctx: &AppContext, BridgeCmd { command }: BridgeCmd) -> Result<()> {
@@ -14,6 +14,8 @@ pub fn run(ctx: &AppContext, BridgeCmd { command }: BridgeCmd) -> Result<()> {
         BridgeSubcommand::Start(args) => start(ctx, args.base),
         BridgeSubcommand::Status(args) => status(ctx, args.base),
         BridgeSubcommand::Stop(args) => stop(ctx, args.base),
+        BridgeSubcommand::Attach(args) => attach(ctx, args),
+        BridgeSubcommand::Heartbeat(args) => heartbeat(ctx, args),
     }
 }
 
@@ -170,6 +172,9 @@ fn status(_ctx: &AppContext, base: crate::cli::BridgeArgsBase) -> Result<()> {
                     "packsRoot": state.packs_root,
                     "lastUpdated": state.updated_at,
                     "logs": state.logs_path,
+                    "heartbeat": state.heartbeat_at,
+                    "statusMessage": state.status_message,
+                    "exitCode": state.exit_code,
                 }))?
             );
         }
@@ -207,6 +212,68 @@ fn stop(_ctx: &AppContext, base: crate::cli::BridgeArgsBase) -> Result<()> {
         Err(err) => emit_error(&err),
     }
 
+    Ok(())
+}
+
+fn attach(_ctx: &AppContext, args: BridgeAttachArgs) -> Result<()> {
+    let ws = workspace_dir(args.base.workspace)?;
+    match BridgeExecutor::attach_pid(
+        &ws,
+        args.base.node.as_str(),
+        args.pid,
+        args.status.as_deref(),
+        args.status_message.as_deref(),
+    ) {
+        Ok(Some(state)) => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "stateId": state.id,
+                    "nodeId": state.node_id,
+                    "pid": state.pid,
+                    "status": state.status,
+                    "heartbeat": state.heartbeat_at,
+                    "statusMessage": state.status_message,
+                }))?
+            );
+        }
+        Ok(None) => {
+            emit_error(&entity_core::error::CoreError::TargetNotFound(
+                "bridge state not found".into(),
+            ));
+        }
+        Err(err) => emit_error(&err),
+    }
+    Ok(())
+}
+
+fn heartbeat(_ctx: &AppContext, args: BridgeHeartbeatArgs) -> Result<()> {
+    let ws = workspace_dir(args.base.workspace)?;
+    match BridgeExecutor::heartbeat(
+        &ws,
+        args.base.node.as_str(),
+        args.status.as_deref(),
+        args.status_message.as_deref(),
+    ) {
+        Ok(Some(state)) => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "stateId": state.id,
+                    "nodeId": state.node_id,
+                    "status": state.status,
+                    "heartbeat": state.heartbeat_at,
+                    "statusMessage": state.status_message,
+                }))?
+            );
+        }
+        Ok(None) => {
+            emit_error(&entity_core::error::CoreError::TargetNotFound(
+                "bridge state not found".into(),
+            ));
+        }
+        Err(err) => emit_error(&err),
+    }
     Ok(())
 }
 

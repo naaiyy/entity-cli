@@ -75,6 +75,7 @@ impl Registry {
                 config_template,
                 spawn,
                 logs_path,
+                heartbeat_interval_ms,
             } => {
                 if let Some(root) = template_root {
                     if !std::path::Path::new(root).exists() {
@@ -117,6 +118,14 @@ impl Registry {
                         return Err(CoreError::InvalidDescriptor(format!(
                             "bridge logs path parent missing for node {}: {}",
                             node.id, path
+                        )));
+                    }
+                }
+                if let Some(interval) = heartbeat_interval_ms {
+                    if *interval == 0 {
+                        return Err(CoreError::InvalidDescriptor(format!(
+                            "bridge heartbeat interval must be > 0 for node {}",
+                            node.id
                         )));
                     }
                 }

@@ -36,6 +36,27 @@ pub struct BridgeStopReq {
     workspace: Option<String>,
 }
 
+#[derive(Deserialize)]
+pub struct BridgeAttachReq {
+    #[serde(rename = "nodeId")]
+    node_id: String,
+    workspace: Option<String>,
+    pid: i32,
+    status: Option<String>,
+    #[serde(rename = "statusMessage")]
+    status_message: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct BridgeHeartbeatReq {
+    #[serde(rename = "nodeId")]
+    node_id: String,
+    workspace: Option<String>,
+    status: Option<String>,
+    #[serde(rename = "statusMessage")]
+    status_message: Option<String>,
+}
+
 pub async fn bridge_scaffold(
     State(state): State<AppState>,
     Json(req): Json<BridgeScaffoldReq>,
@@ -113,6 +134,9 @@ pub async fn bridge_status(Json(req): Json<BridgeStatusReq>) -> Json<serde_json:
             "packsRoot": state.packs_root,
             "logs": state.logs_path,
             "lastUpdated": state.updated_at,
+            "heartbeat": state.heartbeat_at,
+            "statusMessage": state.status_message,
+            "exitCode": state.exit_code,
         })),
         Ok(None) => {
             let err = CoreError::TargetNotFound("bridge not started for requested node".into());
@@ -133,6 +157,54 @@ pub async fn bridge_stop(Json(req): Json<BridgeStopReq>) -> Json<serde_json::Val
         })),
         Ok(None) => {
             let err = CoreError::TargetNotFound("no running bridge found for node".into());
+            Json(serde_json::to_value(err.envelope(None)).unwrap())
+        }
+        Err(err) => Json(serde_json::to_value(err.envelope(None)).unwrap()),
+    }
+}
+
+pub async fn bridge_attach(Json(req): Json<BridgeAttachReq>) -> Json<serde_json::Value> {
+    let ws = workspace_or_default(req.workspace);
+    match BridgeExecutor::attach_pid(
+        &ws,
+        &req.node_id,
+        req.pid,
+        req.status.as_deref(),
+        req.status_message.as_deref(),
+    ) {
+        Ok(Some(state)) => Json(serde_json::json!({
+            "stateId": state.id,
+            "nodeId": state.node_id,
+            "pid": state.pid,
+            "status": state.status,
+            "heartbeat": state.heartbeat_at,
+            "statusMessage": state.status_message,
+        })),
+        Ok(None) => {
+            let err = CoreError::TargetNotFound("bridge state not found".into());
+            Json(serde_json::to_value(err.envelope(None)).unwrap())
+        }
+        Err(err) => Json(serde_json::to_value(err.envelope(None)).unwrap()),
+    }
+}
+
+pub async fn bridge_heartbeat(Json(req): Json<BridgeHeartbeatReq>) -> Json<serde_json::Value> {
+    let ws = workspace_or_default(req.workspace);
+    match BridgeExecutor::heartbeat(
+        &ws,
+        &req.node_id,
+        req.status.as_deref(),
+        req.status_message.as_deref(),
+    ) {
+        Ok(Some(state)) => Json(serde_json::json!({
+            "stateId": state.id,
+            "nodeId": state.node_id,
+            "status": state.status,
+            "heartbeat": state.heartbeat_at,
+            "statusMessage": state.status_message,
+        })),
+        Ok(None) => {
+            let err = CoreError::TargetNotFound("bridge state not found".into());
             Json(serde_json::to_value(err.envelope(None)).unwrap())
         }
         Err(err) => Json(serde_json::to_value(err.envelope(None)).unwrap()),
