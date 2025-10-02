@@ -1,6 +1,6 @@
 {
   "name": "entitygraph-cli",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "description": "Entity Graph CLI shim for macOS arm64 that downloads the native binary from GitHub Releases.",
   "bin": {
     "entitygraph-cli": "bin/run.js",
