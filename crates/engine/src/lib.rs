@@ -3,7 +3,10 @@ use std::path::PathBuf;
 
 use entity_core::error::CoreError;
 use entity_core::loader::load_nodes_from_file;
-use entity_core::model::{CommandShapes, DocsCommandShape, GraphPackage, InitCommandShape, Node, Platforms, Semantics, UiCommandShape, SetupCommandShape};
+use entity_core::model::{
+    BridgeCommandShape, CommandShapes, DocsCommandShape, GraphPackage, InitCommandShape, Node,
+    Platforms, Semantics, SetupCommandShape, UiCommandShape,
+};
 use entity_core::registry::Registry;
 use tracing::info;
 
@@ -13,7 +16,10 @@ pub struct Engine {
 }
 
 impl Engine {
-    pub fn bootstrap(packs_root: PathBuf, product: Option<&str>) -> anyhow::Result<(Self, GraphPackage)> {
+    pub fn bootstrap(
+        packs_root: PathBuf,
+        product: Option<&str>,
+    ) -> anyhow::Result<(Self, GraphPackage)> {
         let mut nodes: Vec<Node> = Vec::new();
         let mut loaded = 0usize;
         // Validate packs root
@@ -37,6 +43,7 @@ impl Engine {
             let docs_nodes = pack.join("docs").join("nodes.json");
             let comp_nodes = pack.join("components").join("nodes.json");
             let setup_nodes = pack.join("setup").join("nodes.json");
+            let bridge_nodes = pack.join("bridge").join("nodes.json");
             if docs_nodes.exists() {
                 nodes.extend(load_nodes_from_file(&docs_nodes)?);
                 loaded += 1;
@@ -49,18 +56,55 @@ impl Engine {
                 nodes.extend(load_nodes_from_file(&setup_nodes)?);
                 loaded += 1;
             }
+            if bridge_nodes.exists() {
+                nodes.extend(load_nodes_from_file(&bridge_nodes)?);
+                loaded += 1;
+            }
         }
         info!(packs = %packs_root.display(), product = ?product, loaded_sets = loaded, nodes_count = nodes.len(), "loaded packs nodes");
 
         let registry = Registry::new(nodes.clone())?;
         // Determine executable from environment (shim sets ENTITY_CLI_EXECUTABLE), default to entity-cli
-        let exe = std::env::var("ENTITY_CLI_EXECUTABLE").unwrap_or_else(|_| "entity-cli".to_string());
+        let exe =
+            std::env::var("ENTITY_CLI_EXECUTABLE").unwrap_or_else(|_| "entity-cli".to_string());
 
         let command_shapes = CommandShapes {
-            init: InitCommandShape { template: format!("{} init <product>", exe) },
-            docs: DocsCommandShape { template: format!("{} docs read <product> --node <id>", exe) },
-            ui: UiCommandShape { template: format!("{} ui install <product> --mode <single|multiple|all> [--names <Name...>]", exe) },
-            setup: SetupCommandShape { template: format!("{} setup run <product> --node <id> [--workspace <path>]", exe) },
+            init: InitCommandShape {
+                template: format!("{} init <product>", exe),
+            },
+            docs: DocsCommandShape {
+                template: format!("{} docs read <product> --node <id>", exe),
+            },
+            ui: UiCommandShape {
+                template: format!(
+                    "{} ui install <product> --mode <single|multiple|all> [--names <Name...>]",
+                    exe
+                ),
+            },
+            setup: SetupCommandShape {
+                template: format!(
+                    "{} setup run <product> --node <id> [--workspace <path>]",
+                    exe
+                ),
+            },
+            bridge: Some(BridgeCommandShape {
+                scaffold_template: format!(
+                    "{} bridge scaffold <product> --node <id> [--workspace <path>]",
+                    exe
+                ),
+                start_template: format!(
+                    "{} bridge start <product> --node <id> [--workspace <path>]",
+                    exe
+                ),
+                status_template: format!(
+                    "{} bridge status <product> --node <id> [--workspace <path>]",
+                    exe
+                ),
+                stop_template: format!(
+                    "{} bridge stop <product> --node <id> [--workspace <path>]",
+                    exe
+                ),
+            }),
         };
         let graph = GraphPackage {
             nodes,
@@ -69,7 +113,10 @@ impl Engine {
             semantics: Semantics {
                 writes_to: "cwd".to_string(),
                 overwrite_on_write: true,
-                platforms: Platforms { os: vec!["darwin".into()], arch: vec!["arm64".into()] },
+                platforms: Platforms {
+                    os: vec!["darwin".into()],
+                    arch: vec!["arm64".into()],
+                },
             },
         };
         Ok((Self { registry }, graph))
@@ -86,7 +133,9 @@ mod tests {
     use tempfile::TempDir;
 
     fn write_file(path: &std::path::Path, content: &str) {
-        if let Some(parent) = path.parent() { let _ = std::fs::create_dir_all(parent); }
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
         let _ = std::fs::write(path, content);
     }
 
@@ -109,12 +158,27 @@ mod tests {
                 "payload": { "contentPath": doc_path.to_string_lossy() }
             }
         ]);
-        write_file(&docs_dir.join("nodes.json"), &serde_json::to_string(&docs_nodes).unwrap());
+        write_file(
+            &docs_dir.join("nodes.json"),
+            &serde_json::to_string(&docs_nodes).unwrap(),
+        );
         write_file(&comps_dir.join("nodes.json"), "[]");
 
         let (_engine, graph) = Engine::bootstrap(packs.path().to_path_buf(), None).unwrap();
         assert!(!graph.nodes.is_empty());
-        assert!(graph.command_shapes.docs.template.contains("entity-cli docs read"));
-        assert!(graph.command_shapes.ui.template.contains("entity-cli ui install"));
+        assert!(
+            graph
+                .command_shapes
+                .docs
+                .template
+                .contains("entity-cli docs read")
+        );
+        assert!(
+            graph
+                .command_shapes
+                .ui
+                .template
+                .contains("entity-cli ui install")
+        );
     }
 }

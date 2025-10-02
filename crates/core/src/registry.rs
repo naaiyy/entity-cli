@@ -12,6 +12,7 @@ pub struct Registry {
     components: Vec<String>,
     by_tag: HashMap<String, Vec<String>>,     // tag -> node ids
     by_section: HashMap<String, Vec<String>>, // section -> node ids
+    bridges: Vec<String>,
 }
 
 impl Registry {
@@ -68,6 +69,58 @@ impl Registry {
                     )));
                 }
             }
+            NodePayload::Bridge {
+                template_root,
+                runner,
+                config_template,
+                spawn,
+                logs_path,
+            } => {
+                if let Some(root) = template_root {
+                    if !std::path::Path::new(root).exists() {
+                        return Err(CoreError::InvalidDescriptor(format!(
+                            "bridge template root not found for node {}: {}",
+                            node.id, root
+                        )));
+                    }
+                }
+                if let Some(path) = runner {
+                    if !std::path::Path::new(path).exists() {
+                        return Err(CoreError::InvalidDescriptor(format!(
+                            "bridge runner not found for node {}: {}",
+                            node.id, path
+                        )));
+                    }
+                }
+                if let Some(path) = config_template {
+                    if !std::path::Path::new(path).exists() {
+                        return Err(CoreError::InvalidDescriptor(format!(
+                            "bridge config template not found for node {}: {}",
+                            node.id, path
+                        )));
+                    }
+                }
+                if let Some(descriptor) = spawn {
+                    if !std::path::Path::new(&descriptor.entry).exists() {
+                        return Err(CoreError::InvalidDescriptor(format!(
+                            "bridge spawn entry not found for node {}: {}",
+                            node.id, descriptor.entry
+                        )));
+                    }
+                }
+                if let Some(path) = logs_path {
+                    let parent = std::path::Path::new(path)
+                        .parent()
+                        .map(|p| p.exists())
+                        .unwrap_or(true);
+                    if !parent {
+                        return Err(CoreError::InvalidDescriptor(format!(
+                            "bridge logs path parent missing for node {}: {}",
+                            node.id, path
+                        )));
+                    }
+                }
+            }
         }
 
         // Index by tag and section if present
@@ -90,6 +143,7 @@ impl Registry {
             NodeKind::Doc => self.docs.push(node.id.clone()),
             NodeKind::Component => self.components.push(node.id.clone()),
             NodeKind::Setup => { /* currently not indexed; may add later */ }
+            NodeKind::Bridge => self.bridges.push(node.id.clone()),
         }
 
         self.nodes.insert(node.id.clone(), node);
@@ -106,8 +160,8 @@ impl Registry {
         self.nodes.values()
     }
 
-    pub fn nodes_by_kind(&self) -> (&[String], &[String]) {
-        (&self.docs, &self.components)
+    pub fn nodes_by_kind(&self) -> (&[String], &[String], &[String]) {
+        (&self.docs, &self.components, &self.bridges)
     }
 
     pub fn into_map(self) -> HashMap<String, Node> {

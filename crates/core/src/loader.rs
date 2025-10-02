@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 
 use crate::error::{CoreError, CoreResult};
-use crate::model::{Node, NodePayload};
+use crate::model::{BridgeSpawnDescriptor, Node, NodePayload};
 
 pub fn load_nodes_from_file(path: &Path) -> CoreResult<Vec<Node>> {
     let file = File::open(path)?;
@@ -20,28 +20,75 @@ pub fn load_nodes_from_file(path: &Path) -> CoreResult<Vec<Node>> {
             NodePayload::Doc { content_path } => {
                 let p = PathBuf::from(&*content_path);
                 if p.is_relative() {
-                    let abs = base_dir.join(p);
+                    let abs = base_dir.join(&p);
                     *content_path = abs.to_string_lossy().to_string();
                 }
             }
             NodePayload::Component { source_root } => {
                 let p = PathBuf::from(&*source_root);
                 if p.is_relative() {
-                    let abs = base_dir.join(p);
+                    let abs = base_dir.join(&p);
                     *source_root = abs.to_string_lossy().to_string();
                 }
             }
             NodePayload::Setup { template_root, .. } => {
                 let p = PathBuf::from(&*template_root);
                 if p.is_relative() {
-                    let abs = base_dir.join(p);
+                    let abs = base_dir.join(&p);
                     *template_root = abs.to_string_lossy().to_string();
+                }
+            }
+            NodePayload::Bridge {
+                template_root,
+                runner,
+                config_template,
+                spawn,
+                logs_path,
+            } => {
+                if let Some(root) = template_root {
+                    let p = Path::new(root);
+                    if p.is_relative() {
+                        let abs = base_dir.join(p);
+                        *template_root = Some(abs.to_string_lossy().to_string());
+                    }
+                }
+                if let Some(path) = runner {
+                    let p = Path::new(path);
+                    if p.is_relative() {
+                        let abs = base_dir.join(p);
+                        *runner = Some(abs.to_string_lossy().to_string());
+                    }
+                }
+                if let Some(path) = config_template {
+                    let p = Path::new(path);
+                    if p.is_relative() {
+                        let abs = base_dir.join(p);
+                        *config_template = Some(abs.to_string_lossy().to_string());
+                    }
+                }
+                if let Some(descriptor) = spawn {
+                    normalize_spawn_paths(descriptor, base_dir);
+                }
+                if let Some(path) = logs_path {
+                    let p = Path::new(path);
+                    if p.is_relative() {
+                        let abs = base_dir.join(p);
+                        *logs_path = Some(abs.to_string_lossy().to_string());
+                    }
                 }
             }
         }
         nodes.push(node);
     }
     Ok(nodes)
+}
+
+fn normalize_spawn_paths(descriptor: &mut BridgeSpawnDescriptor, base_dir: &Path) {
+    let entry_path = Path::new(&descriptor.entry);
+    if entry_path.is_relative() {
+        let abs = base_dir.join(entry_path);
+        descriptor.entry = abs.to_string_lossy().to_string();
+    }
 }
 
 impl TryFrom<Value> for Node {
@@ -74,6 +121,19 @@ impl TryFrom<Value> for Node {
                 if template_root.is_empty() {
                     return Err(CoreError::InvalidDescriptor(format!(
                         "setup node {} missing template_root",
+                        node.id
+                    )));
+                }
+            }
+            NodePayload::Bridge {
+                template_root,
+                runner,
+                spawn,
+                ..
+            } => {
+                if template_root.is_none() && runner.is_none() && spawn.is_none() {
+                    return Err(CoreError::InvalidDescriptor(format!(
+                        "bridge node {} must specify templateRoot, runner, or spawn entry",
                         node.id
                     )));
                 }

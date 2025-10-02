@@ -6,9 +6,11 @@ Entity CLI is an engine that boots into a machine‑native session where the mod
 ## Core ideas
 - Always‑visible graph: the full set of capabilities and metadata is emitted at session start and remains visible.
 - Jump by intent: the command targets the node already visible; no implicit prerequisite resolution.
-- Node kinds (MVP):
+- Node kinds:
   - Docs (read): return content from the pack.
   - Components (write): copy source trees into the user’s workspace.
+  - Setup (scaffold): run product-authored scaffolds and copy templates.
+  - Bridge (replicator): manage real-time database bridge templates and runners.
 
 ## Quick start
 Using the npm shim that downloads the right native binary:
@@ -29,14 +31,26 @@ Notes:
 - Deterministic layout: components are written under `entity-auth/components/<Name>/` with overwrite‑on‑write semantics.
 
 ## CLI commands
+- Initialize session (emit graph):
+  - `entity-cli init <product>`
 - Docs:
   - `entity-cli docs read <product> --node <docId>`
 - Components:
   - `entity-cli ui install <product> --mode <single|multiple|all> [--names <Name...>]`
 - Setup:
   - `entity-cli setup run <product> --node <setupId> [--workspace <path>]`
-- Initialize session (emit graph):
-  - `entity-cli init <product>`
+- Bridge:
+  - `entity-cli bridge scaffold <product> --node <bridgeId> [--workspace <path>]`
+  - `entity-cli bridge start <product> --node <bridgeId> [--workspace <path>]`
+  - `entity-cli bridge status <product> --node <bridgeId> [--workspace <path>]`
+  - `entity-cli bridge stop <product> --node <bridgeId> [--workspace <path>]`
+
+### Bridge workflow
+
+- `bridge scaffold` copies the template tree (`bridge/templates/<name>`) into the workspace under `entity-auth/bridge/<name>`.
+- `bridge start` resolves the runner file (`runner.mjs` or spawn descriptor), generates a process JSON payload, and persists it to `.entitycli/bridge/state/<node>.json`. This JSON includes env defaults, arguments, and optional config/log paths so supervisors can spawn the Node process.
+- `bridge status` simply reads the state file. Supervisors should update the `pid` and `status` fields as they launch or terminate processes; the CLI mirrors those values back to users/agents.
+- `bridge stop` marks the state as stopped and clears the PID to signal the supervisor to terminate the process.
 
 ## Errors (JSON envelope)
 - `UNKNOWN_NODE`, `WRONG_KIND`, `MISSING_SELECTIONS`, `INVALID_SELECTION`, `INVALID_SELECTION` (names), `PACKS_NOT_FOUND`, `TARGET_NOT_FOUND`, `TARGET_NOT_WRITABLE`.

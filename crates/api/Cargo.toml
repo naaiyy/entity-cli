@@ -13,7 +13,10 @@ tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
+uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
 tower = { workspace = true }
 tempfile = { workspace = true }
+hyper = { version = "1", default-features = false, features = ["http1", "http2", "client", "server"] }
+futures-util = { version = "0.3", default-features = false, features = ["std"] }

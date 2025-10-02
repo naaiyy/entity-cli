@@ -18,6 +18,7 @@ pub enum NodeKind {
     Doc,
     Component,
     Setup,
+    Bridge,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -37,6 +38,36 @@ pub enum NodePayload {
         #[serde(default)]
         commands: Option<Vec<String>>,
     },
+    Bridge {
+        #[serde(rename = "templateRoot")]
+        template_root: Option<String>,
+        #[serde(rename = "runner", default)]
+        runner: Option<String>,
+        #[serde(rename = "configTemplate", default)]
+        config_template: Option<String>,
+        #[serde(rename = "spawn", default)]
+        spawn: Option<BridgeSpawnDescriptor>,
+        #[serde(default, rename = "logsPath")]
+        logs_path: Option<String>,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BridgeSpawnDescriptor {
+    /// Node runner entry file relative to packs root
+    pub entry: String,
+    #[serde(default)]
+    pub args: Vec<String>,
+    #[serde(default)]
+    pub env: Vec<BridgeEnvVar>,
+    #[serde(default)]
+    pub cwd: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BridgeEnvVar {
+    pub key: String,
+    pub default: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,6 +94,7 @@ pub struct CommandShapes {
     pub docs: DocsCommandShape,
     pub ui: UiCommandShape,
     pub setup: SetupCommandShape,
+    pub bridge: Option<BridgeCommandShape>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -83,6 +115,14 @@ pub struct InitCommandShape {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SetupCommandShape {
     pub template: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BridgeCommandShape {
+    pub scaffold_template: String,
+    pub start_template: String,
+    pub status_template: String,
+    pub stop_template: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
