@@ -1,0 +1,23 @@
+[
+  {
+    "id": "entityauth:docs:replicator:architecture",
+    "kind": "doc",
+    "title": "Real-time Bridge Architecture",
+    "meta": { "section": "Bridge", "tags": ["bridge", "architecture"] },
+    "payload": { "contentPath": "content/docs/replicator/architecture.mdx" }
+  },
+  {
+    "id": "entityauth:docs:replicator:playbooks",
+    "kind": "doc",
+    "title": "Replicator Playbooks",
+    "meta": { "section": "Bridge", "tags": ["bridge", "playbook"] },
+    "payload": { "contentPath": "content/docs/replicator/playbooks.mdx" }
+  },
+  {
+    "id": "entityauth:docs:replicator:operations",
+    "kind": "doc",
+    "title": "Replicator Operations",
+    "meta": { "section": "Bridge", "tags": ["bridge", "operations"] },
+    "payload": { "contentPath": "content/docs/replicator/operations.mdx" }
+  }
+]

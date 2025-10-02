@@ -102,7 +102,13 @@ impl<'a> BridgeExecutor<'a> {
             notes: vec![],
         };
 
-        let NodePayload::Bridge { template_root, .. } = &node.payload else {
+        let NodePayload::Bridge {
+            template_root,
+            runner,
+            config_template,
+            logs_path,
+            ..
+        } = &node.payload else {
             unreachable!();
         };
 
