@@ -84,7 +84,7 @@ checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
 name = "api"
-version = "0.0.10"
+version = "0.0.11"
 dependencies = [
  "anyhow",
  "axum",
@@ -318,7 +318,7 @@ checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
 
 [[package]]
 name = "engine"
-version = "0.0.10"
+version = "0.0.11"
 dependencies = [
  "anyhow",
  "camino",
@@ -334,7 +334,7 @@ dependencies = [
 
 [[package]]
 name = "entity-cli"
-version = "0.0.10"
+version = "0.0.11"
 dependencies = [
  "anyhow",
  "api",
@@ -356,7 +356,7 @@ dependencies = [
 
 [[package]]
 name = "entity_core"
-version = "0.0.10"
+version = "0.0.11"
 dependencies = [
  "camino",
  "indexmap",
@@ -384,7 +384,7 @@ dependencies = [
 
 [[package]]
 name = "executors"
-version = "0.0.10"
+version = "0.0.11"
 dependencies = [
  "anyhow",
  "camino",
