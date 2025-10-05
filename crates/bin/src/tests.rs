@@ -1,14 +1,75 @@
 use assert_cmd::Command;
 use predicates::prelude::*;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::env;
 
 fn state_fixture() -> (tempfile::TempDir, tempfile::TempDir) {
     (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap())
 }
 
 fn bin_cmd() -> Command {
-    Command::cargo_bin("entity-cli").unwrap()
+    // When running with coverage, prefer invoking via `cargo run` so the binary is instrumented
+    if env::var("LLVM_PROFILE_FILE").is_ok() || env::var("CARGO_LLVM_COV").is_ok() {
+        let manifest_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+        let mut cmd = Command::new("cargo");
+        cmd.arg("run")
+            .arg("--quiet")
+            .arg("--manifest-path").arg(manifest_path)
+            .arg("--bin").arg("entity-cli");
+        return cmd;
+    }
+    // Prefer Cargo-provided env vars
+    if let Ok(path) = std::env::var("CARGO_BIN_EXE_entity-cli") {
+        return Command::new(path);
+    }
+    if let Ok(path) = std::env::var("CARGO_BIN_EXE_entity_cli") {
+        return Command::new(path);
+    }
+
+    // Derive from OUT_DIR when running under tools like cargo-llvm-cov
+    if let Ok(out_dir) = std::env::var("OUT_DIR") {
+        if let Some(bin) = find_bin_from_out_dir(&out_dir, "entity-cli") {
+            return Command::new(bin);
+        }
+    }
+
+    // Try standard resolution; if it fails under coverage, fallback to `cargo run`.
+    match Command::cargo_bin("entity-cli") {
+        Ok(cmd) => cmd,
+        Err(_) => {
+            let manifest_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+            let mut cmd = Command::new("cargo");
+            cmd.arg("run")
+                .arg("--quiet")
+                .arg("--manifest-path").arg(manifest_path)
+                .arg("--bin").arg("entity-cli");
+            cmd
+        }
+    }
+}
+
+fn find_bin_from_out_dir(out_dir: &str, bin_name: &str) -> Option<PathBuf> {
+    let mut current = Path::new(out_dir).to_path_buf();
+    // Walk up to find a parent named debug or release
+    while let Some(parent) = current.parent() {
+        if parent.file_name().and_then(|n| n.to_str()) == Some("debug")
+            || parent.file_name().and_then(|n| n.to_str()) == Some("release")
+        {
+            let mut candidate = parent.to_path_buf();
+            let exe = if cfg!(windows) {
+                format!("{}.exe", bin_name)
+            } else {
+                bin_name.to_string()
+            };
+            candidate.push(exe);
+            if candidate.exists() {
+                return Some(candidate);
+            }
+        }
+        current = parent.to_path_buf();
+    }
+    None
 }
 
 #[test]

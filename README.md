@@ -111,3 +111,39 @@ Best practices:
 - Intel macOS, Windows, and Linux are intentionally not supported yet. This is deliberate to keep distribution simple during the MVP. We’ll expand support later.
 
 
+## Test coverage
+
+We use cargo-llvm-cov for workspace coverage.
+
+Prereqs:
+
+```bash
+rustup component add llvm-tools-preview
+cargo install cargo-llvm-cov --locked
+```
+
+Run HTML report:
+
+```bash
+make coverage
+# or
+cargo coverage
+open target/llvm-cov/html/index.html
+```
+
+Export LCOV (for CI/Codecov):
+
+```bash
+make coverage-lcov
+# or
+cargo coverage-lcov
+```
+
+Clean coverage data:
+
+```bash
+make coverage-clean
+```
+
+CI publishes `Entity-CLI/coverage/lcov.info` as an artifact on PRs and pushes to `main`.
+
