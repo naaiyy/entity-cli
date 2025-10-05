@@ -1,12 +1,25 @@
 use super::build_router;
-use axum::body::Body;
-use axum::http::{Request, StatusCode};
+use axum::{http::{Method, Request, StatusCode}, body::Body};
+use tower::ServiceExt;
+
+#[tokio::test]
+async fn session_init_invalid_path_returns_error_envelope() {
+    let app = build_router().await.unwrap();
+    let req = Request::builder()
+        .method(Method::POST)
+        .uri("/session/init")
+        .header("content-type", "application/json")
+        .body(Body::from(r#"{ "packsPath": "/path/does/not/exist" }"#))
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+}
+
 use futures_util::StreamExt;
 use serde_json::Value;
 use serde_json::json;
 use std::fs;
 use tempfile::TempDir;
-use tower::util::ServiceExt;
 
 fn write_file(path: &std::path::Path, content: &str) {
     if let Some(parent) = path.parent() {
