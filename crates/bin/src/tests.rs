@@ -9,44 +9,33 @@ fn state_fixture() -> (tempfile::TempDir, tempfile::TempDir) {
 }
 
 fn bin_cmd() -> Command {
-    // When running with coverage, prefer invoking via `cargo run` so the binary is instrumented
-    if env::var("LLVM_PROFILE_FILE").is_ok() || env::var("CARGO_LLVM_COV").is_ok() {
-        let manifest_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
-        let mut cmd = Command::new("cargo");
-        cmd.arg("run")
-            .arg("--quiet")
-            .arg("--manifest-path").arg(manifest_path)
-            .arg("--bin").arg("entity-cli");
-        return cmd;
-    }
-    // Prefer Cargo-provided env vars
-    if let Ok(path) = std::env::var("CARGO_BIN_EXE_entity-cli") {
-        return Command::new(path);
-    }
-    if let Ok(path) = std::env::var("CARGO_BIN_EXE_entity_cli") {
-        return Command::new(path);
+    // Prefer an already built instrumented binary when available (set by coverage harness)
+    if let Ok(path) = env::var("CARGO_BIN_EXE_entity-cli").or_else(|_| env::var("CARGO_BIN_EXE_entity_cli")) {
+        if Path::new(&path).exists() {
+            return Command::new(path);
+        }
     }
 
     // Derive from OUT_DIR when running under tools like cargo-llvm-cov
-    if let Ok(out_dir) = std::env::var("OUT_DIR") {
+    if let Ok(out_dir) = env::var("OUT_DIR") {
         if let Some(bin) = find_bin_from_out_dir(&out_dir, "entity-cli") {
             return Command::new(bin);
         }
     }
 
-    // Try standard resolution; if it fails under coverage, fallback to `cargo run`.
-    match Command::cargo_bin("entity-cli") {
-        Ok(cmd) => cmd,
-        Err(_) => {
-            let manifest_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
-            let mut cmd = Command::new("cargo");
-            cmd.arg("run")
-                .arg("--quiet")
-                .arg("--manifest-path").arg(manifest_path)
-                .arg("--bin").arg("entity-cli");
-            cmd
-        }
+    // Fallback to cargo-provided binary resolution
+    if let Ok(cmd) = Command::cargo_bin("entity-cli") {
+        return cmd;
     }
+
+    // Last resort: spawn via `cargo run` (may not be instrumented)
+    let manifest_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+    let mut cmd = Command::new("cargo");
+    cmd.arg("run")
+        .arg("--quiet")
+        .arg("--manifest-path").arg(manifest_path)
+        .arg("--bin").arg("entity-cli");
+    cmd
 }
 
 fn find_bin_from_out_dir(out_dir: &str, bin_name: &str) -> Option<PathBuf> {
@@ -72,6 +61,77 @@ fn find_bin_from_out_dir(out_dir: &str, bin_name: &str) -> Option<PathBuf> {
     None
 }
 
+#[test]
+fn unit_docs_read_invokes_executor() {
+    // Arrange minimal packs tree
+    let packs = tempfile::tempdir().unwrap();
+    let pack_root = packs.path().join("entity-auth");
+    let docs_dir = pack_root.join("docs");
+    let comps_dir = pack_root.join("components");
+    fs::create_dir_all(&docs_dir).unwrap();
+    fs::create_dir_all(&comps_dir).unwrap();
+    let content_dir = docs_dir.join("content");
+    fs::create_dir_all(&content_dir).unwrap();
+    let doc_path = content_dir.join("getting-started.md");
+    fs::write(&doc_path, "hello unit").unwrap();
+    let nodes = serde_json::json!([
+        {
+            "id": "entityauth:docs:getting-started",
+            "kind": "doc",
+            "title": "Getting Started",
+            "meta": {"section":"Setup","tags":["intro","setup"]},
+            "prerequisites": [],
+            "payload": { "contentPath": doc_path.to_string_lossy() }
+        }
+    ]);
+    fs::write(docs_dir.join("nodes.json"), nodes.to_string()).unwrap();
+    fs::write(comps_dir.join("nodes.json"), "[]").unwrap();
+
+    // Act: call command directly
+    let ctx = crate::support::AppContext::new(Some(packs.path().to_path_buf()));
+    crate::commands::docs::run(&ctx, crate::cli::DocsCmd { command: crate::cli::DocsSubcommand::Read(crate::cli::DocsReadArgs { product: "entity-auth".into(), node: "entityauth:docs:getting-started".into() }) }).unwrap();
+}
+
+#[test]
+fn unit_ui_install_invokes_components() {
+    let packs = tempfile::tempdir().unwrap();
+    let pack_root = packs.path().join("entity-auth");
+    let docs_dir = pack_root.join("docs");
+    let comps_dir = pack_root.join("components");
+    fs::create_dir_all(&docs_dir).unwrap();
+    fs::create_dir_all(&comps_dir).unwrap();
+    fs::write(docs_dir.join("nodes.json"), "[]").unwrap();
+
+    // create component source tree
+    let ui_root = comps_dir.join("ui");
+    let sign_in = ui_root.join("SignIn");
+    fs::create_dir_all(sign_in.join("nested")).unwrap();
+    fs::write(sign_in.join("index.tsx"), "export const A = 1;\n").unwrap();
+    fs::write(sign_in.join("nested").join("util.ts"), "export const U = 1;\n").unwrap();
+    let nodes = serde_json::json!([
+        {
+            "id": "entityauth:components:install",
+            "kind": "component",
+            "title": "Install UI Components",
+            "meta": { "mode": ["single","multiple","all"], "names": ["SignIn"] },
+            "prerequisites": [
+                { "key": "selection.mode", "schema": { "enum": ["single","multiple","all"] } },
+                { "key": "selection.names", "schema": { "type": "array", "items": { "enum": ["SignIn"] } }, "optional": true }
+            ],
+            "payload": { "sourceRoot": ui_root.to_string_lossy() }
+        }
+    ]);
+    fs::write(comps_dir.join("nodes.json"), nodes.to_string()).unwrap();
+
+    let ctx = crate::support::AppContext::new(Some(packs.path().to_path_buf()));
+    let args = crate::cli::UiInstallArgs {
+        product: "entity-auth".into(),
+        mode: Some("single".into()),
+        names: Some(vec!["SignIn".into()]),
+        node: "entityauth:components:install".into(),
+    };
+    crate::commands::ui::run(&ctx, crate::cli::UiCmd { command: crate::cli::UiSubcommand::Install(args) }).unwrap();
+}
 #[test]
 fn packs_not_found_yields_json_error() {
     let mut cmd = bin_cmd();

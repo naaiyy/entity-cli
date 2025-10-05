@@ -30,7 +30,7 @@ fi
 export CARGO_BIN_EXE_entity_cli="$BIN_ABS_PATH"
 
 # Run coverage tests once, then generate reports
-cargo llvm-cov --workspace --bins
+cargo llvm-cov --workspace
 cargo llvm-cov report --html
 cargo llvm-cov report --summary-only
 echo "HTML coverage at target/llvm-cov/html/index.html"
