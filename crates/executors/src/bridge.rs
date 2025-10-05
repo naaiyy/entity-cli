@@ -104,9 +104,6 @@ impl<'a> BridgeExecutor<'a> {
 
         let NodePayload::Bridge {
             template_root,
-            runner,
-            config_template,
-            logs_path,
             ..
         } = &node.payload else {
             unreachable!();
